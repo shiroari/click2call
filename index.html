@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Click to call</title>
+  <link rel="stylesheet" href="dist/assets/css/style.css">
+  <script src="//code.jquery.com/jquery-2.1.4.min.js"></script>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="band">
+      <div class="container">
+        <p>Do you want to talk about it?</p>
+        <a id="c2c" href="#" class="btn btn-normal">Click to Call</a>
+        <p id="status" class="info"></p>
+      </div>
+    </div>
+  </div>
+  <script src="dist/assets/js/sipml5.js"></script>
+  <script src="dist/assets/js/click2call.js"></script>
+  <script>
+    c2c.create({
+      button: $('#c2c'),
+      status: $('#status'),
+      params: {
+        from: 'click2call',
+        to: '0081',
+        password: '',
+        domain: '192.168.211.189',
+        sipProxy: 'ws://192.168.211.189:10080', // OverSIP websocket address
+      }
+    });
+  </script>
+</body>
+</html>
