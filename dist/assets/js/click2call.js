@@ -63,10 +63,18 @@ var c2c = function () {
             case 'stopping':
               self.started = false;
               break;
+            case 'failed_to_start':
+            case 'failed_to_stop':
+              self.onStatusChange('Unexpected Error');
+              break;
             case 'm_permission_requested':
+              self.onStatusChange('Request access to microphone');
               break;
             case 'm_permission_accepted':
+              self.onStatusChange('Microphone access was allowed');
+              break;
             case 'm_permission_refused':
+              self.onStatusChange('Microphone access is denied');
               break;
             }
           }
@@ -74,6 +82,49 @@ var c2c = function () {
       });
 
       this.sipStack.start();
+    },
+
+    register: function(callback) {
+
+      if (this.callSession) {
+        return;
+      }
+
+      if (this.registered ||
+         (this.params.digest === undefined && this.params.password === undefined)){
+        callback();
+        return;
+      }
+
+      var self = this;
+
+      var session = this.sipStack.newSession('register', {
+        expires: 200,
+        events_listener: {
+          events: '*',
+          listener: function (e) {
+            switch (e.type) {
+            case 'connecting':
+              self.onStatusChange('Registering');
+              break;
+            case 'connected':
+              self.registered = true;
+              self.onStatusChange('Registered');
+              callback();
+              break;
+            case 'disconnected':
+            case 'terminated':
+              self.registered = false;
+              //self.onStatusChange('Not Registered');
+              self.onStatusChange(e.description);
+              break;
+            }
+          }
+        }
+      });
+
+      session.register();
+
     },
 
     callto: function () {
@@ -92,28 +143,29 @@ var c2c = function () {
         events_listener: {
           events: '*',
           listener: function (e) {
+            console.log(e.type);
             switch (e.type) {
             case 'connecting':
-              self.onStatusChange('Connecting...');
               self.onActiveCall(true);
+              self.onStatusChange('Connecting...');
               break;
             case 'connected':
               self.onStatusChange('Connected');
               break;
-            case 'i_ao_request': {
-                var code = e.getSipResponseCode();
-                if (code === 180 || code === 183) {
-                  self.onStatusChange('Ringing...');
-                }
+            case 'i_ao_request':
+              if (e.getSipResponseCode() === 180 || e.getSipResponseCode() === 183) {
+                self.onStatusChange('Ringing...');
               }
               break;
             case 'terminating':
-            case 'terminated': {
-                //self.status('Terminated');
-                self.onStatusChange(e.description);
-                self.onActiveCall(false);
-                self.callSession = null;
-              }
+              self.onActiveCall(false);
+              self.callSession = null;
+              break;
+            case 'terminated':
+              self.onActiveCall(false);
+              self.callSession = null;
+              //self.status('Terminated');
+              self.onStatusChange(e.description);
               break;
             }
           }
@@ -126,17 +178,19 @@ var c2c = function () {
 
     onClick: function () {
       var self = this;
-      if (this.callSession){
+      if (this.callSession) {
         this.callSession.hangup();
         return;
       }
-      this.start(function () {
-        self.callto();
+      self.start(function () {
+        self.register(function () {
+          self.callto();
+        });
       });
     },
 
-    onActiveCall: function(active){
-      if (active){
+    onActiveCall: function (active) {
+      if (active) {
         this.$btn
           .addClass('btn-warn')
           .removeClass('btn-normal')
@@ -149,7 +203,7 @@ var c2c = function () {
       }
     },
 
-    onStatusChange: function(text){
+    onStatusChange: function (text) {
       this.$status.text(text);
     }
 
