@@ -54,6 +54,7 @@ var c2c = function () {
         realm: this.params.domain,
         impi: this.params.from,
         impu: 'sip:' + this.params.from + '@' + this.params.domain,
+        password: this.params.password,
         digest: this.params.digest,
 
         websocket_proxy_url: this.params.sipProxy,
