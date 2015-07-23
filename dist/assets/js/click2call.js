@@ -1,46 +1,55 @@
 var c2c = function () {
 
-  var CallButton = function (opts) {
-    this.$btn = $(opts.button);
-    this.$status = $(opts.status);
-    this.params = opts.params;
-    this.init();
+  var nop = function (){};
+
+  var UserAgent = function (params){
+    this.eventListeners = [];
+    this.updateListeners = [];
+    this.params = params;
   };
 
-  CallButton.prototype = {
+  UserAgent.prototype = {
 
-    init: function () {
+    init: function (resolve, reject) {
 
-      var self = this;
+      resolve = resolve || nop;
+      reject = reject || nop;
 
-      this.onActiveCall(false);
+      this.connecting = true;
+      this.fireUpdate();
 
-      this.$btn.click(function (e) {
-        e.preventDefault();
-        self.onClick();
-      });
-
-      this.$audio = $('<audio id="audio_output" autoPlay="autoplay"/>')
-        .appendTo('body');
-
-      SIPml.init(function (e) {
-        self.$status.text('Ready');
-      }, function (e) {
-        self.$status.text('Error');
-      });
-
-    },
-
-    start: function (callback) {
-
-      if (this.started) {
-        callback();
+      if (this.inited) {
+        resolve();
         return;
       }
 
       var self = this;
 
-      this.sipStack = new SIPml.Stack({
+      SIPml.init(function (e) {
+        self.inited = true;
+        resolve();
+        self.fireUpdate();
+      }, function (e) {
+        self.connecting = false;
+        reject();
+        self.fireUpdate();
+      });
+
+    },
+
+    start: function (resolve, reject) {
+
+      resolve = resolve || nop;
+      reject = reject || nop;
+
+      if (this.started) {
+        resolve();
+        return;
+      }
+
+      var self = this;
+
+      this.stack = new SIPml.Stack({
 
         realm: this.params.domain,
         impi: this.params.from,
@@ -57,154 +66,246 @@ var c2c = function () {
             switch (e.type) {
             case 'started':
               self.started = true;
-              callback();
+              resolve();
+              self.fireUpdate();
               break;
             case 'stopped':
             case 'stopping':
+              self.connecting = false;
               self.started = false;
+              self.fireUpdate();
               break;
             case 'failed_to_start':
-            case 'failed_to_stop':
-              self.onStatusChange('Unexpected Error');
-              break;
-            case 'm_permission_requested':
-              self.onStatusChange('Request access to microphone');
-              break;
-            case 'm_permission_accepted':
-              self.onStatusChange('Microphone access was allowed');
+              self.connecting = false;
+              self.statusText = 'Unexpected Error';
+              reject();
+              self.fireUpdate();
               break;
             case 'm_permission_refused':
-              self.onStatusChange('Microphone access is denied');
+              self.statusText = 'Microphone access is denied';
+              self.fireUpdate();
               break;
             }
+            self.fireEvent(e);
           }
         }
       });
 
-      this.sipStack.start();
+      this.stack.start();
     },
 
-    register: function(callback) {
+    register: function(resolve, reject) {
 
-      if (this.callSession) {
-        return;
-      }
+      resolve = resolve || nop;
+      reject = reject || nop;
 
       if (this.registered ||
          (this.params.digest === undefined && this.params.password === undefined)){
-        callback();
+        resolve();
         return;
       }
 
       var self = this;
 
-      var session = this.sipStack.newSession('register', {
+      this.registration = this.stack.newSession('register', {
         expires: 200,
         events_listener: {
           events: '*',
           listener: function (e) {
             switch (e.type) {
             case 'connecting':
-              self.onStatusChange('Registering');
+              self.statusText = 'Registering';
+              self.fireUpdate();
               break;
             case 'connected':
               self.registered = true;
-              self.onStatusChange('Registered');
-              callback();
+              self.statusText = 'Registered';
+              resolve();
+              self.fireUpdate();
               break;
-            case 'disconnected':
             case 'terminated':
+              if (!self.registered){
+                reject();
+              }
+              self.registration = null;
+              self.connecting = false;
               self.registered = false;
-              //self.onStatusChange('Not Registered');
-              self.onStatusChange(e.description);
+              self.statusText = e.description;
+              self.fireUpdate();
               break;
             }
+            self.fireEvent(e);
           }
         }
       });
 
-      session.register();
-
+      this.registration.register();
     },
 
-    callto: function () {
+    callto: function (resolve, reject) {
 
-      if (this.callSession) {
+      if (this.session) {
         return;
       }
 
+      resolve = resolve || nop;
+      reject = reject || nop;
+
       var self = this;
 
-      this.callSession = this.sipStack.newSession('call-audio', {
+      this.session = this.stack.newSession('call-audio', {
         from: self.params.from,
-        audio_remote: self.$audio[0],
+        audio_remote: self.params.output,
         video_local: null,
         video_remote: null,
         events_listener: {
           events: '*',
           listener: function (e) {
-            console.log(e.type);
             switch (e.type) {
             case 'connecting':
-              self.onActiveCall(true);
-              self.onStatusChange('Connecting...');
+              self.statusText = 'Connecting...';
+              self.fireUpdate();
               break;
             case 'connected':
-              self.onStatusChange('Connected');
+              self.connecting = false;
+              self.connected = true;
+              self.statusText = 'Connected';
+              self.fireUpdate();
+              break;
+            case 'terminating':
+              if (!self.connected){
+                reject();
+              }
+              self.connecting = false;
+              self.connected = false;
+              self.session = null;
+              self.fireUpdate();
+              break;
+            case 'terminated':
+              self.connecting = false;
+              self.connected = false;
+              self.session = null;
+              self.statusText = e.description;
+              self.fireUpdate();
               break;
             case 'i_ao_request':
               if (e.getSipResponseCode() === 180 || e.getSipResponseCode() === 183) {
-                self.onStatusChange('Ringing...');
+                self.statusText = 'Ringing...';
+                self.fireUpdate();
               }
               break;
-            case 'terminating':
-              self.onActiveCall(false);
-              self.callSession = null;
-              break;
-            case 'terminated':
-              self.onActiveCall(false);
-              self.callSession = null;
-              //self.status('Terminated');
-              self.onStatusChange(e.description);
-              break;
             }
+            self.fireEvent(e);
           }
         }
       });
 
-      this.callSession.call(this.params.to);
+      this.session.call(this.params.to);
+    },
+
+    drop: function(){
+
+      if (this.session){
+        this.session.hangup();
+      }
 
     },
 
-    onClick: function () {
-      var self = this;
-      if (this.callSession) {
-        this.callSession.hangup();
-        return;
-      }
-      self.start(function () {
-        self.register(function () {
-          self.callto();
-        });
+    fireEvent: function(e) {
+      this.eventListeners.forEach(function(l){
+        l(e);
       });
     },
 
-    onActiveCall: function (active) {
-      if (active) {
+    fireUpdate: function() {
+      this.updateListeners.forEach(function(l){
+        l();
+      });
+    },
+
+    onEvent: function(listener){
+      this.eventListeners.push(listener);
+    },
+
+    onChange: function(listener){
+      this.updateListeners.push(listener);
+    }
+
+  };
+
+  var CallButton = function (opts) {
+    this.$btn = $(opts.button);
+    this.$status = $(opts.status);
+    if (!opts.params.output){
+      var $audio = $('<audio id="audio_output" autoPlay="autoplay"/>')
+        .appendTo('body');
+      opts.params.output = $audio[0];
+    }
+    this.ua = new UserAgent(opts.params);
+    this.ua.onChange(this.onChange.bind(this));
+    this.ua.onEvent(this.onEvent.bind(this));
+    this.init();
+  };
+
+  CallButton.prototype = {
+
+    init: function () {
+      var self = this;
+      this.$btn.click(function (e) {
+        e.preventDefault();
+        self.onClick();
+      });
+      this.onChange();
+    },
+
+    onClick: function () {
+
+      var ua = this.ua;
+
+      if (ua.connecting){
+        return;
+      }
+
+      if (ua.connected){
+        ua.drop();
+        return;
+      }
+
+      ua.init(function(){
+        ua.start(function () {
+          ua.register(function () {
+            ua.callto();
+          });
+        });
+      });
+
+    },
+
+    onEvent: function (e) {
+      console.log("Event: " + e.type);
+    },
+
+    onChange: function () {
+      var ua = this.ua;
+      if (ua.connected) {
         this.$btn
           .addClass('btn-warn')
           .removeClass('btn-normal')
           .text('Drop Call');
       } else {
-        this.$btn
-          .addClass('btn-normal')
-          .removeClass('btn-warn')
-          .text('Call Us');
+        if (ua.connecting) {
+          this.$btn
+            .addClass('btn-normal')
+            .removeClass('btn-warn')
+            .text('Calling...');
+        } else {
+          this.$btn
+            .addClass('btn-normal')
+            .removeClass('btn-warn')
+            .text('Call Us');
+        }
       }
-    },
-
-    onStatusChange: function (text) {
-      this.$status.text(text);
+      this.$status.text(ua.statusText);
     }
 
   };
