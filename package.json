@@ -1,0 +1,22 @@
+{
+  "name": "click2call",
+  "version": "0.0.1",
+  "description": "Click to call button implementation based on [sipML5](http://sipml5.org) library",
+  "homepage": "https://github.com/shiroari/click2call#readme",
+  "author": "Stas Sukhanov",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shiroari/click2call.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shiroari/click2call/issues"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "gulp": "latest",
+    "gulp-uglify": "latest",
+    "gulp-rename": "latest",
+    "del": "latest"
+  }
+}
