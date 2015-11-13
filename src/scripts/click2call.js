@@ -1,11 +1,39 @@
 var c2c = (function () { // jshint ignore:line
 
-  var nop = function (){};
+  var nop = function () {};
 
-  var UserAgent = function (params){
+  var sip = {
+    toUri: function (opts) {
+      var uri, params;
+      var name, value;
+      if (!opts.user){
+        throw 'User is required';
+      }
+      uri = 'sip:' + opts.user + '@';
+      if (opts.domain){
+        uri += opts.domain;
+      }
+      if (opts.params){
+        if (typeof opts.params === 'function'){
+          params = opts.params();
+        } else {
+          params = opts.params;
+        }
+        for (name in params){
+          value = params[name] || '';
+          if (params.hasOwnProperty(name) && (typeof value !== 'object')) {
+            uri += ';' + encodeURIComponent(name) + '=' + encodeURIComponent(value);
+          }
+        }
+      }
+      return uri;
+    }
+  };
+
+  var UserAgent = function (settings) {
     this.eventListeners = [];
     this.updateListeners = [];
-    this.params = params;
+    this.settings = settings;
   };
 
   UserAgent.prototype = {
@@ -51,13 +79,17 @@ var c2c = (function () { // jshint ignore:line
 
       this.stack = new SIPml.Stack({
 
-        realm: this.params.domain,
-        impi: this.params.from,
-        impu: 'sip:' + this.params.from + '@' + this.params.domain,
-        digest: this.params.digest,
+        realm: this.settings.domain,
+        impi: this.settings.from,
+        impu: sip.toUri({
+          user: this.settings.from,
+          domain: this.settings.domain
+        }),
+        digest: this.settings.digest,
+        password: this.settings.password,
 
-        websocket_proxy_url: this.params.sipProxy,
-        ice_servers: this.params.stunServers,
+        websocket_proxy_url: this.settings.sipProxy,
+        ice_servers: this.settings.stunServers,
         enable_media_stream_cache: true,
 
         events_listener: {
@@ -94,13 +126,13 @@ var c2c = (function () { // jshint ignore:line
       this.stack.start();
     },
 
-    register: function(resolve, reject) {
+    register: function (resolve, reject) {
 
       resolve = resolve || nop;
       reject = reject || nop;
 
       if (this.registered ||
-         (this.params.digest === undefined && this.params.password === undefined)){
+        (this.settings.digest === undefined && this.settings.password === undefined)) {
         resolve();
         return;
       }
@@ -124,7 +156,7 @@ var c2c = (function () { // jshint ignore:line
               self.fireUpdate();
               break;
             case 'terminated':
-              if (!self.registered){
+              if (!self.registered) {
                 reject();
               }
               self.registration = null;
@@ -154,8 +186,8 @@ var c2c = (function () { // jshint ignore:line
       var self = this;
 
       this.session = this.stack.newSession('call-audio', {
-        from: self.params.from,
-        audio_remote: self.params.output,
+        from: self.settings.from,
+        audio_remote: self.settings.output,
         video_local: null,
         video_remote: null,
         events_listener: {
@@ -173,7 +205,7 @@ var c2c = (function () { // jshint ignore:line
               self.fireUpdate();
               break;
             case 'terminating':
-              if (!self.connected){
+              if (!self.connected) {
                 reject();
               }
               self.connecting = false;
@@ -200,34 +232,38 @@ var c2c = (function () { // jshint ignore:line
         }
       });
 
-      this.session.call(this.params.to);
+      this.session.call(sip.toUri({
+        user: this.settings.to,
+        domain: this.settings.domain,
+        params: this.settings.params
+      }));
     },
 
-    drop: function(){
+    drop: function () {
 
-      if (this.session){
+      if (this.session) {
         this.session.hangup();
       }
 
     },
 
-    fireEvent: function(e) {
-      this.eventListeners.forEach(function(l){
+    fireEvent: function (e) {
+      this.eventListeners.forEach(function (l) {
         l(e);
       });
     },
 
-    fireUpdate: function() {
-      this.updateListeners.forEach(function(l){
+    fireUpdate: function () {
+      this.updateListeners.forEach(function (l) {
         l();
       });
     },
 
-    onEvent: function(listener){
+    onEvent: function (listener) {
       this.eventListeners.push(listener);
     },
 
-    onChange: function(listener){
+    onChange: function (listener) {
       this.updateListeners.push(listener);
     }
 
@@ -236,12 +272,12 @@ var c2c = (function () { // jshint ignore:line
   var CallButton = function (opts) {
     this.$btn = $(opts.button);
     this.$status = $(opts.status);
-    if (!opts.params.output){
+    if (!opts.userAgentSettings.output) {
       var $audio = $('<audio id="audio_output" autoPlay="autoplay"/>')
         .appendTo('body');
-      opts.params.output = $audio[0];
+      opts.userAgentSettings.output = $audio[0];
     }
-    this.ua = new UserAgent(opts.params);
+    this.ua = new UserAgent(opts.userAgentSettings);
     this.ua.onChange(this.onChange.bind(this));
     this.ua.onEvent(this.onEvent.bind(this));
     this.init();
@@ -262,16 +298,16 @@ var c2c = (function () { // jshint ignore:line
 
       var ua = this.ua;
 
-      if (ua.connecting){
+      if (ua.connecting) {
         return;
       }
 
-      if (ua.connected){
+      if (ua.connected) {
         ua.drop();
         return;
       }
 
-      ua.init(function(){
+      ua.init(function () {
         ua.start(function () {
           ua.register(function () {
             ua.callto();
@@ -314,6 +350,10 @@ var c2c = (function () { // jshint ignore:line
 
   fn.create = function (opts) {
     return new CallButton(opts);
+  };
+
+  fn._ = {
+    sip: sip
   };
 
   return fn;

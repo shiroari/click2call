@@ -3,6 +3,7 @@
 var gulp = require('gulp');
 var uglify = require('gulp-uglify');
 var rename = require('gulp-rename');
+var jasmine = require('gulp-jasmine');
 var del = require('del');
 
 var dest;
@@ -57,11 +58,17 @@ gulp.task('clean', function () {
   del(['dist/*', 'demo/*']);
 });
 
+// Tests
+gulp.task('test', function () {
+  return gulp.src('tests/utils.js')
+    .pipe(jasmine());
+});
+
 // Build
-gulp.task('build', ['init-build', 'scripts', 'copy-libs-and-minify']);
+gulp.task('build', ['init-build', 'test', 'scripts', 'copy-libs-and-minify']);
 
 // Demo
-gulp.task('demo', ['init-demo', 'scripts', 'copy-libs', 'styles', 'html']);
+gulp.task('demo', ['init-demo', 'test', 'scripts', 'copy-libs', 'styles', 'html']);
 
 // Default task
 gulp.task('default', ['clean', 'build']);
