@@ -1,4 +1,6 @@
-var c2c = (function () { // jshint ignore:line
+/* globals define */
+
+(function () {
 
   var nop = function () {};
 
@@ -269,93 +271,23 @@ var c2c = (function () { // jshint ignore:line
 
   };
 
-  var CallButton = function (opts) {
-    this.$btn = $(opts.button);
-    this.$status = $(opts.status);
-    if (!opts.userAgentSettings.output) {
-      var $audio = $('<audio id="audio_output" autoPlay="autoplay"/>')
-        .appendTo('body');
-      opts.userAgentSettings.output = $audio[0];
-    }
-    this.ua = new UserAgent(opts.userAgentSettings);
-    this.ua.onChange(this.onChange.bind(this));
-    this.ua.onEvent(this.onEvent.bind(this));
-    this.init();
+  var c2c = {};
+
+  c2c.newUserAgent = function (opts) {
+    return new UserAgent(opts);
   };
 
-  CallButton.prototype = {
-
-    init: function () {
-      var self = this;
-      this.$btn.click(function (e) {
-        e.preventDefault();
-        self.onClick();
-      });
-      this.onChange();
-    },
-
-    onClick: function () {
-
-      var ua = this.ua;
-
-      if (ua.connecting) {
-        return;
-      }
-
-      if (ua.connected) {
-        ua.drop();
-        return;
-      }
-
-      ua.init(function () {
-        ua.start(function () {
-          ua.register(function () {
-            ua.callto();
-          });
-        });
-      });
-
-    },
-
-    onEvent: function (e) {
-      console.log('Event: ' + e.type);
-    },
-
-    onChange: function () {
-      var ua = this.ua;
-      if (ua.connected) {
-        this.$btn
-          .addClass('btn-warn')
-          .removeClass('btn-normal')
-          .text('Drop Call');
-      } else {
-        if (ua.connecting) {
-          this.$btn
-            .addClass('btn-normal')
-            .removeClass('btn-warn')
-            .text('Calling...');
-        } else {
-          this.$btn
-            .addClass('btn-normal')
-            .removeClass('btn-warn')
-            .text('Call Us');
-        }
-      }
-      this.$status.text(ua.statusText);
-    }
-
-  };
-
-  var fn = {};
-
-  fn.create = function (opts) {
-    return new CallButton(opts);
-  };
-
-  fn._ = {
+  c2c.utils = {
     sip: sip
   };
 
-  return fn;
+  if (typeof module === 'object' && module && typeof module.exports === 'object') {
+    module.exports = c2c;
+  } else {
+    window.c2c = c2c;
+    if ( typeof define === 'function' && define.amd ) {
+      define( 'click2call', [], function () { return c2c; } );
+  	}
+  }
 
 }());
