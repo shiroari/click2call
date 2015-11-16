@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Click to call</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="//code.jquery.com/jquery-2.1.4.min.js"></script>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="band">
+      <div class="container">
+        <p>Do you want to talk about it?</p>
+        <a id="c2c" href="#" class="btn">Click to Call</a>
+        <p id="status" class="info"></p>
+      </div>
+    </div>
+  </div>
+  <script src="assets/js/sipml5.js"></script>
+  <script src="assets/js/click2call.js"></script>
+  <script>
+    c2c.create({
+      button: $('#c2c'),
+      status: $('#status'),
+      userAgentSettings: {
+
+        // Click-to-call user id or number
+        from: 'click2call',
+
+        // Contact id or number
+        to: '0081',
+
+        // SIP URI parameters that would be passed (Optional)
+        // Can be object or function that returns object
+        params: {
+          'click2call': 'yes'
+        },
+
+        // Host providing the SIP resource
+        domain: '192.168.211.189',
+
+        // Click-to-call user password (Optional)
+        // password: '123',
+
+        // Click-to-call user auth-digest (Optional)
+        // digest: '54aae962dbefc914e6d8be9eb7f28dd8',
+
+        // OverSIP websocket address
+        sipProxy: 'ws://192.168.211.189:10080',
+
+        // STUN servers list  (Optional)
+        // stunServers: [{"url":"stun:stun.l.google.com:19302"}]
+
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font: normal 20px/24px "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #666;
+  margin: 0;
+}
+
+.wrapper {
+    height: 100%;
+}
+
+.band {
+  width: 400px;
+  height: 100%;
+  margin: 0 auto;
+  text-align: center;
+  padding: 20px;
+  border-left: 1px solid #ddd;
+  border-right: 1px solid #ddd;
+  background-color: #f1f1f1;
+  box-sizing: border-box;
+}
+
+.btn {
+  font-size: 18px;
+  display: inline-block;
+  padding: 8px 12px;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 6px;
+  color: #fff;
+  background-color: #ddd;
+  opacity: .8;
+}
+
+.btn:hover {
+  opacity: 1;
+}
+
+.btn-normal {
+  background-color: #6ba;
+}
+
+.btn-warn {
+  background-color: tomato;
+}
+
+.info {
+  font-size: 12px;
+  color: #ccc;
+}
+
+#WebRtc4npapi,
+#audio_output {
+  display: none;
+}
