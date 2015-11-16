@@ -1,12 +1,9 @@
-/* globals describe, it, expect, c2c */
+/* globals describe, it, expect */
 
 describe('SIP utils test suite', function () {
 
-  var fs = require('fs');
-  var js = fs.readFileSync('./src/scripts/click2call.js','utf-8');
-  eval(js); // jshint ignore:line
-
-  var sip = c2c._.sip;
+  var c2c = require('../src/scripts/click2call.js');
+  var sip = c2c.utils.sip;
 
   it('user is required', function () {
 
