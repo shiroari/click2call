@@ -176,7 +176,7 @@
       this.registration.register();
     },
 
-    callto: function (resolve, reject) {
+    makeCall: function (resolve, reject) {
 
       if (this.session) {
         return;
@@ -239,6 +239,23 @@
         domain: this.settings.domain,
         params: this.settings.params
       }));
+    },
+
+    callto: function (resolve, reject) {
+
+      resolve = resolve || nop;
+      reject = reject || nop;
+
+      var self = this;
+
+      self.init(function () {
+        self.start(function () {
+          self.register(function () {
+            self.makeCall(resolve, reject);
+          }, reject);
+        }, reject);
+      }, reject);
+
     },
 
     drop: function () {
