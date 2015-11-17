@@ -50,13 +50,7 @@
         return;
       }
 
-      ua.init(function () {
-        ua.start(function () {
-          ua.register(function () {
-            ua.callto();
-          });
-        });
-      });
+      ua.callto();
 
     },
 
