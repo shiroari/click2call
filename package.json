@@ -1,6 +1,6 @@
 {
   "name": "click2call",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Click to call button implementation based on [sipML5](http://sipml5.org) library",
   "homepage": "https://github.com/shiroari/click2call#readme",
   "author": "Stas Sukhanov",
