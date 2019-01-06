@@ -1189,7 +1189,6 @@ function WebRtc4all_Init() {
                 window.nativeRTCPeerConnection = (window.webkitPeerConnection00 || window.webkitRTCPeerConnection || window.mozRTCPeerConnection);
                 window.nativeRTCSessionDescription = (window.mozRTCSessionDescription || window.RTCSessionDescription); // order is very important: "RTCSessionDescription" defined in Nighly but useless
                 window.nativeRTCIceCandidate = (window.mozRTCIceCandidate || window.RTCIceCandidate);
-                window.nativeURL = (window.webkitURL || window.URL);
                 navigator.nativeGetUserMedia = (navigator.webkitGetUserMedia || navigator.mozGetUserMedia);
                 if ((navigator.nativeGetUserMedia && window.nativeRTCPeerConnection)) {
                     __webrtc_type = WebRtcType_e.NATIVE; // Google Chrome
@@ -8160,9 +8159,6 @@ var o_session = new tsip_session_invite(o_stack,
 function tsip_session_invite(o_stack) {
     tsip_session.call(this, o_stack);
     this.__set(Array.prototype.slice.call(arguments, 1));
-    
-    this.o_url_local = null;
-    this.o_url_remote = null;
 }
 
 /**
@@ -8191,18 +8187,13 @@ o_stack.on_event_invite = function (evt) {
         case tsip_event_invite_type_e.M_STREAM_LOCAL_ADDED:
                 {
                     // 'video_local' is a HTML <video> element 
-                    document.getElementById("video_local").src = evt.get_session().get_url_local();
+                    document.getElementById("video_local").srcObject = evt.get_session().get_stream_local();
                     break;
                 }
      }
 };
 * @endcode
 */
-tsip_session_invite.prototype.get_url_local = function () {
-   
-    return this.o_url_local;
-}
-
 tsip_session_invite.prototype.get_stream_local = function () {
     return this.o_stream_local;
 }
@@ -8218,17 +8209,13 @@ o_stack.on_event_invite = function (evt) {
         case tsip_event_invite_type_e.M_STREAM_REMOTE_ADDED:
             {
                 // 'video_remote' is a HTML <video> element 
-                document.getElementById("video_remote").src = evt.get_session().get_url_local();
+                document.getElementById("video_remote").srcObject = evt.get_session().get_stream_remote();
                 break;
             }
     }
 };
 * @endcode
 */
-tsip_session_invite.prototype.get_url_remote = function () {
-    return this.o_url_remote;
-}
-
 tsip_session_invite.prototype.get_stream_remote = function () {
     return this.o_stream_remote;
 }
@@ -8237,22 +8224,14 @@ tsip_session_invite.prototype.get_stream_remote = function () {
  Internal function
 */
 tsip_session_invite.prototype.__set_stream_local = function (o_stream) {
-    if (this.o_url_local) {
-        window.nativeURL.revokeObjectURL(this.o_url_local);
-    }
     this.o_stream_local = o_stream;
-    this.o_url_local = o_stream ? window.nativeURL.createObjectURL(o_stream) : undefined;
 }
 
 /*
 Internal function
 */
 tsip_session_invite.prototype.__set_stream_remote = function (o_stream) {
-    if (this.o_url_remote) {
-        window.nativeURL.revokeObjectURL(this.o_url_remote);
-    }
     this.o_stream_remote = o_stream;
-    this.o_url_remote = this.o_stream_remote ? window.nativeURL.createObjectURL(this.o_stream_remote) : undefined;
 }
 
 /**
@@ -30821,11 +30800,12 @@ SIPml.Stack = function (o_conf) {
 
          
 
-         var _setStream = function(o_view, o_stream, o_url, b_audio){
+         var _setStream = function (o_view, o_stream, o_stream_active, b_audio){
             if(o_stream){
                 if(!b_audio && o_stream.videoTracks.length > 0){
                     if (window.HTMLVideoElement && o_view instanceof window.HTMLVideoElement){
-                        if((o_view.src = o_url)){
+                        o_view.srcObject = o_stream_active;
+                        if (o_stream_active){
                             o_view.play();
                         }
                     }
@@ -30833,7 +30813,8 @@ SIPml.Stack = function (o_conf) {
                 }
                 if(b_audio && o_stream.audioTracks.length > 0){
                     if (window.HTMLAudioElement && o_view instanceof window.HTMLAudioElement){
-                        if((o_view.src = o_url)){
+                        o_view.srcObject = o_stream_active;
+                        if (o_stream_active){
                             o_view.play();
                         }
                     }
@@ -30844,11 +30825,10 @@ SIPml.Stack = function (o_conf) {
 
          var attachStream = function(bLocal){
             var o_stream = bLocal ? e.o_session.get_stream_local() : e.o_session.get_stream_remote();
-            var o_url = bLocal ? e.o_session.get_url_local() : e.o_session.get_url_remote();
-            if(_setStream((bLocal ? oSession.videoLocal : oSession.videoRemote), o_stream, o_url, false)){
+             if (_setStream((bLocal ? oSession.videoLocal : oSession.videoRemote), o_stream, o_stream, false)){
                 dispatchEvent(bLocal ? 'm_stream_video_local_added' : 'm_stream_video_remote_added');
             }
-            if(_setStream((bLocal ? oSession.audioLocal : oSession.audioRemote), o_stream, o_url, true)){
+            if (_setStream((bLocal ? oSession.audioLocal : oSession.audioRemote), o_stream, o_stream, true)){
                 dispatchEvent(bLocal ? 'm_stream_audio_local_added' : 'm_stream_audio_remote_added');
             }
          }
@@ -31258,35 +31238,45 @@ SIPml.Session.prototype.setConfiguration = function(o_conf){
         this.audioRemote = o_conf.audio_remote;
         this.audioLocal = o_conf.audio_local;
         
-         var _addStream = function(o_view, o_stream, o_url, b_audio){
+        var _addStream = function (o_view, o_stream, b_audio){
             if(o_stream){
                 if(!b_audio && o_stream.videoTracks.length > 0){
                     if (window.HTMLVideoElement && o_view instanceof window.HTMLVideoElement){
-                        if(o_view.src == o_url) return false; // unchanged
-                        else if(o_view.src = o_url) o_view.play();
+                        if (o_view.srcObject == o_stream){
+                            return false; // unchanged
+                        }
+                        o_view.srcObject = o_stream;
+                        if (o_stream){
+                            o_view.play();
+                        }
                     }
                     return true;
                 }
                 if(b_audio && o_stream.audioTracks.length > 0){
                     if (window.HTMLAudioElement && o_view instanceof window.HTMLAudioElement){
-                        if(o_view.src == o_url) return false; // unchanged
-                        else if(o_view.src = o_url) o_view.play();
+                        if (o_view.srcObject == o_stream){
+                            return false; // unchanged
+                        }
+                        o_view.srcObject = o_stream;
+                        if (o_stream){
+                            o_view.play();
+                        }
                     }
                     return true;
                 }
             }
          }
 
-        if(_addStream(this.videoLocal, o_session.get_stream_local(), o_session.get_url_local(), false)){
+        if(_addStream(this.videoLocal, o_session.get_stream_local(), false)){
             this.dispatchEvent({ s_type: 'm_stream_video_local_added', o_value: new SIPml.Session.Event(this, 'm_stream_video_local_added') });
         }
-        if(_addStream(this.videoRemote, o_session.get_stream_remote(), o_session.get_url_remote(), false)){
+        if(_addStream(this.videoRemote, o_session.get_stream_remote(), false)){
             this.dispatchEvent({ s_type: 'm_stream_video_remote_added', o_value: new SIPml.Session.Event(this, 'm_stream_video_remote_added') });
         }
-        if(_addStream(this.audioLocal, o_session.get_stream_local(), o_session.get_url_local(), true)){
+        if(_addStream(this.audioLocal, o_session.get_stream_local(), true)){
             this.dispatchEvent({ s_type: 'm_stream_audio_local_added', o_value: new SIPml.Session.Event(this, 'm_stream_audio_local_added') });
         }
-        if(_addStream(this.audioRemote, o_session.get_stream_remote(), o_session.get_url_remote(), true)){
+        if(_addStream(this.audioRemote, o_session.get_stream_remote(), true)){
             this.dispatchEvent({ s_type: 'm_stream_audio_remote_added', o_value: new SIPml.Session.Event(this, 'm_stream_audio_remote_added') });
         }
     }
