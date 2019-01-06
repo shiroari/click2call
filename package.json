@@ -18,6 +18,7 @@
     "gulp-uglify": "latest",
     "gulp-rename": "latest",
     "gulp-jasmine": "latest",
+    "gulp-webserver" : "latest",
     "del": "latest"
   }
 }

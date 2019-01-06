@@ -5,6 +5,7 @@ const uglify = require('gulp-uglify');
 const rename = require('gulp-rename');
 const jasmine = require('gulp-jasmine');
 const del = require('del');
+const webserver = require('gulp-webserver');
 
 let destForBuild = 'dist/assets';
 let destForDemo = 'demo/assets';
@@ -66,11 +67,23 @@ function test() {
     .pipe(jasmine());
 };
 
+// Demo
+function runDemo() {
+  return src('demo')
+    .pipe(webserver({
+      open: false,
+      livereload: false,
+      directoryListing: false,
+      fallback: 'index.html'
+    }));
+};
+
 let buildPipeline = series(initBuild, parallel(js, copyLibsAndMinify), test)
 let buildDemoPipeline = series(initBuildDemo, parallel(js, copyLibs, css, html), test)
 
 exports.clean = clean;
 exports.build = buildPipeline;
 exports.buildDemo = buildDemoPipeline;
+exports.runDemo = runDemo;
 exports.test = test;
 exports.default = series(clean, buildPipeline);
