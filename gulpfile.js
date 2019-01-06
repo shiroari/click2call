@@ -1,74 +1,76 @@
 'use strict';
 
-var gulp = require('gulp');
-var uglify = require('gulp-uglify');
-var rename = require('gulp-rename');
-var jasmine = require('gulp-jasmine');
-var del = require('del');
+const { src, dest, parallel, series } = require('gulp');
+const uglify = require('gulp-uglify');
+const rename = require('gulp-rename');
+const jasmine = require('gulp-jasmine');
+const del = require('del');
 
-var dest;
-var destForBuild = 'dist/assets';
-var destForDemo = 'demo/assets';
+let destForBuild = 'dist/assets';
+let destForDemo = 'demo/assets';
+let output
 
 // Build environment
-gulp.task('init-build', function () {
-  dest = destForBuild;
-});
+function initBuild(cb) {
+  output = destForBuild;
+  cb();
+}
 
 // Demo environment
-gulp.task('init-demo', function () {
-  dest = destForDemo;
-});
+function initBuildDemo(cb) {
+  output = destForDemo;
+  cb();
+}
 
 // Scripts
-gulp.task('scripts', function () {
-  return gulp.src('src/scripts/*.js')
-    .pipe(gulp.dest(dest + '/js'));
-});
+function js() {
+  return src('src/scripts/*.js')
+    .pipe(dest(output + '/js'));
+};
 
 // Libs
-gulp.task('copy-libs', function () {
-  return gulp.src('src/libs/*.js')
-    .pipe(gulp.dest(dest + '/js'));
-});
+function copyLibs() {
+  return src('src/libs/*.js')
+    .pipe(dest(output + '/js'));
+};
 
-gulp.task('copy-libs-and-minify', function () {
-  return gulp.src('src/libs/*.js')
+function copyLibsAndMinify() {
+  return src('src/libs/*.js')
     .pipe(rename(function (path) {
       path.basename += '.min';
     }))
     .pipe(uglify())
-    .pipe(gulp.dest(dest + '/js'));
-});
+    .pipe(dest(output + '/js'));
+};
 
 // Styles
-gulp.task('styles', function () {
-  return gulp.src('src/styles/*.css')
-    .pipe(gulp.dest(dest + '/css'));
-});
+function css() {
+  return src('src/styles/*.css')
+    .pipe(dest(output + '/css'));
+};
 
 // HTML
-gulp.task('html', function () {
-  return gulp.src('src/html/*.html')
-    .pipe(gulp.dest('demo'));
-});
+function html() {
+  return src('src/html/*.html')
+    .pipe(dest('demo'));
+};
 
 // Clean
-gulp.task('clean', function () {
-  del(['dist/*', 'demo/*']);
-});
+function clean() {
+  return del(['dist/*', 'demo/*']);
+};
 
 // Tests
-gulp.task('test', function () {
-  return gulp.src('tests/utils.js')
+function test() {
+  return src('tests/utils.js')
     .pipe(jasmine());
-});
+};
 
-// Build
-gulp.task('build', ['init-build', 'test', 'scripts', 'copy-libs-and-minify']);
+let buildPipeline = series(initBuild, parallel(js, copyLibsAndMinify), test)
+let buildDemoPipeline = series(initBuildDemo, parallel(js, copyLibs, css, html), test)
 
-// Demo
-gulp.task('demo', ['init-demo', 'test', 'scripts', 'copy-libs', 'styles', 'html']);
-
-// Default task
-gulp.task('default', ['clean', 'build']);
+exports.clean = clean;
+exports.build = buildPipeline;
+exports.buildDemo = buildDemoPipeline;
+exports.test = test;
+exports.default = series(clean, buildPipeline);
